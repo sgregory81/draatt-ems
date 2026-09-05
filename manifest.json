@@ -1,0 +1,9 @@
+{
+  "name": "DRAATT EMS Narrative Builder Prototype",
+  "short_name": "DRAATT",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#eef3f8",
+  "theme_color": "#15395f",
+  "description": "Test-data-only ADPH-oriented DRAATT EMS narrative builder prototype"
+}
