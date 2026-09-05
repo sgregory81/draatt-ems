@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DRAATT EMS Narrative Builder</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#172033;background:#eef3f8}
+*{box-sizing:border-box} body{margin:0}.top{background:#15395f;color:white;padding:18px 20px}
+.top h1{margin:0;font-size:22px}.top small{opacity:.85}
+.wrap{max-width:920px;margin:auto;padding:18px}.progress{display:flex;gap:5px;margin:10px 0 18px}
+.progress span{flex:1;height:7px;background:#ccd7e3;border-radius:9px}.progress .on{background:#2367a8}
+.card{background:white;border-radius:14px;padding:20px;box-shadow:0 3px 14px #0001;margin-bottom:14px}
+h2{margin-top:0;color:#15395f}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label{display:block;font-weight:650;margin:10px 0 5px} input,select,textarea{width:100%;padding:11px;border:1px solid #aebdca;border-radius:8px;font:inherit}
+textarea{min-height:88px}.checks{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.checks label{font-weight:400;margin:0;padding:9px;background:#f5f8fb;border-radius:8px}
+.actions{display:flex;justify-content:space-between;gap:10px;margin-top:18px}button{border:0;border-radius:9px;padding:12px 18px;font-weight:750;cursor:pointer}
+.primary{background:#1769aa;color:white}.secondary{background:#dfe7ef;color:#17324d}.danger{background:#9d2731;color:white}
+.alert{padding:12px;border-radius:9px;margin:8px 0}.warn{background:#fff3cd}.hard{background:#f8d7da}.ok{background:#d9f0df}
+.hidden{display:none}.pill{display:inline-block;background:#e5eef7;padding:4px 8px;border-radius:99px;margin:2px;font-size:12px}
+pre{white-space:pre-wrap;font:inherit;line-height:1.55;background:#f6f8fa;padding:14px;border-radius:9px}
+@media(max-width:650px){.grid,.checks{grid-template-columns:1fr}.wrap{padding:10px}.card{padding:15px}}
+</style>
+</head>
+<body>
+<header class="top"><h1>DRAATT EMS Narrative Builder</h1><small>ADPH-oriented prototype • TEST DATA ONLY — NO PHI</small></header>
+<main class="wrap">
+<div class="progress" id="progress"></div>
+<div id="app"></div>
+</main>
+<script>
+const steps=["Encounter","Dispatch","Response","Arrived","Assessment","Complaint","Treatment","Transport","QA","Narrative"];
+let step=0;
+let d={meds:[],procs:[]};
+const app=document.getElementById("app");
+function val(id){return document.getElementById(id)?.value?.trim()||""}
+function yn(id){return val(id)}
+function saveCommon(){
+ document.querySelectorAll("[data-k]").forEach(e=>{d[e.dataset.k]=e.value});
+ document.querySelectorAll("input[type=checkbox][data-k]").forEach(e=>d[e.dataset.k]=e.checked);
+}
+function nav(n){saveCommon(); step=Math.max(0,Math.min(steps.length-1,n)); render(); scrollTo(0,0)}
+function buttons(){return `<div class="actions"><button class="secondary" onclick="nav(step-1)" ${step===0?"disabled":""}>← Back</button><button class="primary" onclick="nav(step+1)">Next →</button></div>`}
+function field(k,l,type="text",opts=[]){
+ if(type==="select") return `<label>${l}</label><select data-k="${k}"><option value="">Select…</option>${opts.map(x=>`<option ${d[k]===x?"selected":""}>${x}</option>`).join("")}</select>`;
+ if(type==="textarea") return `<label>${l}</label><textarea data-k="${k}">${d[k]||""}</textarea>`;
+ return `<label>${l}</label><input type="${type}" data-k="${k}" value="${d[k]||""}">`;
+}
+function renderProgress(){document.getElementById("progress").innerHTML=steps.map((x,i)=>`<span class="${i<=step?"on":""}" title="${x}"></span>`).join("")}
+function render(){
+ renderProgress();
+ let h=`<div class="card"><h2>${steps[step]}</h2>`;
+ if(step===0) h+=`
+ <div class="grid">${field("unit","Unit / call sign")}${field("station","Station / responding location")}</div>
+ ${field("encounter","Encounter type","select",["911 / Scene","Interfacility Transfer","Critical Care Transfer","Refusal / No Transport","Other"])}
+ ${field("complaint","Primary complaint","select",["General Medical","Chest Pain / ACS","Respiratory","Trauma","Refusal"])}
+ <div class="alert warn"><b>Prototype safety:</b> Use fictional/test patients only. This build is not approved for PHI or clinical deployment.</div>${buttons()}`;
+ if(step===1) h+=`${field("location","Dispatch location / type")}${field("dispatchComplaint","Original dispatch complaint")}${field("dispatchInfo","Additional dispatch/EMD information","textarea")}${buttons()}`;
+ if(step===2) h+=`${field("responseMode","Response mode","select",["Emergent","Non-emergent"])}${field("dueRegard","Due regard","select",["Yes","No","N/A"])}${field("delay","Response delay?","select",["No","Yes"])}${field("delayReason","If delayed, explain")}${field("responseEvent","Staging/resources/significant response event","textarea")}${buttons()}`;
+ if(step===3) h+=`${field("sceneSafe","Scene safe?","select",["Yes","No","Unable to determine"])}${field("found","Where/position was patient found?")}${field("present","Who was present?")}${field("appearance","General appearance","select",["No apparent distress","Mild distress","Moderate distress","Severe distress","Critically ill","Unresponsive","Cardiac arrest"])}${field("appearanceBasis","Objective first-impression findings / basis for distress","textarea")}${field("lifeThreat","Immediate life threat?","select",["No","Yes"])}${field("movement","How was patient moved?")}${buttons()}`;
+ if(step===4) h+=`${field("chief","Chief complaint / what caused EMS activation","textarea")}${field("historySource","History source","select",["Patient","Family","Caregiver","Bystander","Facility staff","Law enforcement","Records","Unable to obtain"])}
+ <div class="grid">${field("avpu","AVPU","select",["Alert","Verbal","Pain","Unresponsive"])}${field("orientation","Orientation actually assessed")}</div>
+ ${field("airway","Airway findings")}${field("breathing","Breathing / lung findings","textarea")}${field("circulation","Circulation / skin / pulse findings","textarea")}${field("neuro","Neurologic findings","textarea")}${field("exam","Focused exam + pertinent positives/negatives","textarea")}${field("vitals","Important vitals/diagnostics/trends","textarea")}${field("impression","EMS clinical impression")}${buttons()}`;
+ if(step===5){
+   const c=d.complaint||"General Medical";
+   h+=`<p><span class="pill">${c}</span></p>`;
+   if(c==="Chest Pain / ACS") h+=`${field("opqrst","OPQRST","textarea")}${field("assoc","Associated symptoms / pertinent negatives","textarea")}${field("cardiacHx","Relevant cardiac history/medications")}${field("ecg","12-lead/serial ECG findings")}${field("system","STEMI system/prenotification if applicable")}`;
+   else if(c==="Respiratory") h+=`${field("respHx","COPD/asthma/CHF/home O₂/CPAP/BiPAP/recent illness","textarea")}${field("respSymptoms","Onset/cough/fever/orthopnea/WOB/lung sounds","textarea")}${field("oxygenData","SpO₂/EtCO₂ and oxygen/ventilation support","textarea")}`;
+   else if(c==="Trauma") h+=`${field("mechanism","Mechanism")}${field("mechDetails","Mechanism details","textarea")}${field("traumaFindings","Trauma exam / injuries / hemorrhage / neuro / PMS","textarea")}${field("atcc","Trauma system / ATCC / destination rationale","textarea")}`;
+   else if(c==="Refusal") h+=`${field("recommended","Recommended care/transport","textarea")}${field("decision","Decision-making assessment / impairing factors","textarea")}${field("risks","Risks and alternatives explained / understanding","textarea")}${field("refusalAdmin","Medical direction / witness / signature details","textarea")}`;
+   else h+=`${field("medicalHx","Relevant history / SAMPLE / onset / events","textarea")}${field("medicalDetails","Complaint-specific findings / pertinent negatives","textarea")}`;
+   h+=buttons();
+ }
+ if(step===6) h+=`<p>Add medications/procedures as concise structured events. Each event must include enough detail to be defensible.</p>
+ ${field("treatment","Treatments: medication/procedure, time, indication, dose/route/settings, attempts/success, complications, response/reassessment","textarea")}
+ <div class="alert warn">QA will flag treatment without a documented response/reassessment.</div>${buttons()}`;
+ if(step===7) h+=`${field("disposition","Disposition","select",["Transported","Refused / No Transport","Treated / No Transport","Transferred to another EMS unit","Cancelled","No Patient","Other"])}${field("destination","Destination")}${field("destinationReason","Destination reason / rationale")}${field("transportMode","Transport mode","select",["Emergent","Non-emergent","N/A"])}${field("monitoring","Position / monitoring during transport","textarea")}${field("trend","Condition/trend","select",["Improved","Unchanged","Worsened","Fluctuated","Not applicable"])}${field("transportEvents","Changes, reassessments, additional treatments, prenotification","textarea")}${field("handoff","Arrival, movement, report/care transfer, condition at handoff","textarea")}${buttons()}`;
+ if(step===8){const issues=qa(); h+=issues.length?issues.map(x=>`<div class="alert ${x.hard?"hard":"warn"}"><b>${x.hard?"HARD STOP":"REVIEW"}:</b> ${x.msg}</div>`).join(""):`<div class="alert ok"><b>QA check passed.</b> No prototype rules triggered.</div>`;
+ h+=`<div class="actions"><button class="secondary" onclick="nav(7)">← Back</button><button class="primary" onclick="generate()" ${issues.some(x=>x.hard)?"disabled":""}>Generate DRAATT →</button></div>`}
+ if(step===9) h+=`<div class="alert ok"><b>Clinician review required.</b> Edit anything that does not accurately reflect the encounter.</div><textarea id="narrative" style="min-height:520px">${escapeHtml(d.narrative||makeNarrative())}</textarea><div class="actions"><button class="secondary" onclick="nav(8)">← QA</button><button class="primary" onclick="copyNarrative()">Copy Narrative</button></div>`;
+ h+=`</div>`; app.innerHTML=h;
+}
+function qa(){
+ let a=[];
+ const req=[["unit","Unit/call sign"],["encounter","Encounter type"],["complaint","Primary complaint"],["dispatchComplaint","Original dispatch complaint"],["responseMode","Response mode"],["sceneSafe","Scene safety"],["disposition","Disposition"]];
+ req.forEach(([k,l])=>{if(!d[k])a.push({hard:true,msg:`${l} is missing.`})});
+ if(d.delay==="Yes"&&!d.delayReason)a.push({hard:false,msg:"A response delay is documented without an explanation."});
+ if(["Mild distress","Moderate distress","Severe distress","Critically ill"].includes(d.appearance)&&!d.appearanceBasis)a.push({hard:false,msg:"Distress/critical appearance is selected without objective supporting findings."});
+ if(d.complaint==="Chest Pain / ACS"&&!d.ecg)a.push({hard:false,msg:"Chest Pain/ACS selected but no 12-lead documentation or rationale is entered."});
+ if(d.complaint==="Refusal" && (!d.recommended||!d.risks))a.push({hard:true,msg:"Refusal requires recommended care/transport plus risks/alternatives documentation."});
+ if(d.treatment && !/(response|reassess|improv|unchang|wors|tolerat|unable)/i.test(d.treatment))a.push({hard:false,msg:"Treatment is documented, but a clear patient response/reassessment may be missing."});
+ if(d.avpu==="Unresponsive" && /a&o|oriented/i.test(d.orientation||""))a.push({hard:false,msg:"Unresponsive AVPU conflicts with orientation documentation; clarify timing or correct the entry."});
+ return a;
+}
+function sentence(x){return x?x.replace(/\s+/g," ").trim():""}
+function makeNarrative(){
+ const dispatch=`DISPATCH: ${sentence(d.unit)}${d.station?` dispatched from ${sentence(d.station)}`:""}${d.location?` to ${sentence(d.location)}`:""} for ${sentence(d.dispatchComplaint)||"the documented dispatch complaint"}.${d.dispatchInfo?" "+sentence(d.dispatchInfo):""}`;
+ const response=`RESPONSE: ${sentence(d.unit)||"Unit"} responded ${sentence(d.responseMode).toLowerCase()||"as documented"}${d.dueRegard==="Yes"?" with due regard":""}.${d.delay==="Yes"?` Response delay documented secondary to ${sentence(d.delayReason)}.`:""}${d.responseEvent?" "+sentence(d.responseEvent):""}`;
+ const arrived=`ARRIVED: Upon arrival, scene safety documented as ${sentence(d.sceneSafe).toLowerCase()||"not entered"}.${d.found?` Patient found ${sentence(d.found)}.`:""}${d.present?` ${sentence(d.present)} present.`:""}${d.appearance?` Patient appeared ${sentence(d.appearance).toLowerCase()}.`:""}${d.appearanceBasis?" "+sentence(d.appearanceBasis):""}${d.lifeThreat==="Yes"?" An immediate life threat was documented.":""}${d.movement?` Patient movement: ${sentence(d.movement)}.`:""}`;
+ const assess=`ASSESSMENT: ${d.historySource?`${sentence(d.historySource)} reports `:""}${sentence(d.chief)||"Chief complaint as documented."}${d.avpu?` AVPU: ${sentence(d.avpu)}.`:""}${d.orientation?` Orientation: ${sentence(d.orientation)}.`:""}${d.airway?` Airway: ${sentence(d.airway)}.`:""}${d.breathing?` Breathing: ${sentence(d.breathing)}.`:""}${d.circulation?` Circulation: ${sentence(d.circulation)}.`:""}${d.neuro?` Neurologic assessment: ${sentence(d.neuro)}.`:""}${d.exam?` ${sentence(d.exam)}`:""}${d.vitals?` Diagnostics/vital-sign findings: ${sentence(d.vitals)}.`:""}${complaintText()}${d.impression?` EMS clinical impression: ${sentence(d.impression)}.`:""}`;
+ const treatment=`TREATMENT: ${sentence(d.treatment)||"No treatment narrative entered."}`;
+ let transport=`TRANSPORT: Disposition: ${sentence(d.disposition)||"not entered"}.`;
+ if(d.destination) transport+=` Destination: ${sentence(d.destination)}${d.destinationReason?` (${sentence(d.destinationReason)})`:""}.`;
+ if(d.transportMode) transport+=` Transport mode: ${sentence(d.transportMode)}.`;
+ if(d.monitoring) transport+=` ${sentence(d.monitoring)}`;
+ if(d.trend) transport+=` Condition/trend documented as ${sentence(d.trend).toLowerCase()}.`;
+ if(d.transportEvents) transport+=` ${sentence(d.transportEvents)}`;
+ if(d.handoff) transport+=` ${sentence(d.handoff)}`;
+ return [dispatch,response,arrived,assess,treatment,transport].join("\n\n");
+}
+function complaintText(){
+ const c=d.complaint;
+ if(c==="Chest Pain / ACS") return `${d.opqrst?` OPQRST: ${sentence(d.opqrst)}.`:""}${d.assoc?` Associated findings: ${sentence(d.assoc)}.`:""}${d.cardiacHx?` Relevant cardiac history/medications: ${sentence(d.cardiacHx)}.`:""}${d.ecg?` ECG: ${sentence(d.ecg)}.`:""}${d.system?` ${sentence(d.system)}`:""}`;
+ if(c==="Respiratory") return `${d.respHx?` Respiratory history: ${sentence(d.respHx)}.`:""}${d.respSymptoms?` ${sentence(d.respSymptoms)}`:""}${d.oxygenData?` Oxygenation/ventilation: ${sentence(d.oxygenData)}.`:""}`;
+ if(c==="Trauma") return `${d.mechanism?` Mechanism: ${sentence(d.mechanism)}.`:""}${d.mechDetails?` ${sentence(d.mechDetails)}`:""}${d.traumaFindings?` Trauma findings: ${sentence(d.traumaFindings)}.`:""}${d.atcc?` ${sentence(d.atcc)}`:""}`;
+ if(c==="Refusal") return `${d.decision?` Decision-making assessment: ${sentence(d.decision)}.`:""}${d.recommended?` Recommended care/transport: ${sentence(d.recommended)}.`:""}${d.risks?` Risks/alternatives: ${sentence(d.risks)}.`:""}${d.refusalAdmin?` ${sentence(d.refusalAdmin)}`:""}`;
+ return `${d.medicalHx?` History: ${sentence(d.medicalHx)}.`:""}${d.medicalDetails?` ${sentence(d.medicalDetails)}`:""}`;
+}
+function generate(){saveCommon();d.narrative=makeNarrative();step=9;render();scrollTo(0,0)}
+function escapeHtml(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+async function copyNarrative(){let t=document.getElementById("narrative").value;d.narrative=t;await navigator.clipboard.writeText(t);alert("Narrative copied.");}
+render();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
+</script>
+</body></html>
